@@ -1,0 +1,101 @@
+
+Data Structure:
+	Keep content store
+	Pending ad table
+	Each ad is 1 to 1 mapping with content
+	FIB table has 2 columns Prefix and Outbound port, forwards interest upstream
+	FAB Forwarding Ad Base has same format as FIB, forwards ads downstream
+	Pending Interest table stays the same
+	Pending Ad Table (PAT) is added with same format as interest
+	Use prefix match percentage as probability value (using blocks, (slashes))
+	When there is a match:
+		adds the upstream link to FIB using the ad
+		adds the downstream link to FAB using the interest
+	Using the tables, consider each case
+		when an interest packet comes in:
+			matches with content store - The interest is satisfied, send data back over same face
+				check if it is possibly in PIT as well
+			matches with PIT - Redundant interest currently being searched for, discard
+			matches with PAT - Forwards interest packet along the corresponding PAT face
+			matches with FIB - Forward interest on corresponding FIB faces, adds PIT
+			matches with FAB - Forward interest on corresponding FAB face, adds PIT
+			no matches - Forward interest using gossip
+		when an ad packet comes in:
+			matches with content store - Discard ad packet
+			matches with PIT - Forward interest packet upstream along face
+			matches with PAT - Redundant ad, discard, if different face, adds it, if same, discard
+			matches with FIB - Forward ad along corresponding FIB faces
+			matches with FAB - Forward ad along corresponding FAB face, if same face, adds to PAT, forw
+			no matches - Forward ad along
+		when a data packet comes in:
+			matches with content store - duplicate data, discard
+			matches with PIT - Sends data packet over PIT link, removes from PIT, possibly from FIB also.
+			matches with FIB - 
+			no matches -
+assume static network
+if interest comes back with the same interest same face, it should be discarded
+if interest comes back with same interest different face, it should be added
+if match in PAB it is error, remove
+assuming high probability of match
+Probability could be calculated by:
+	if interest comes, match of in forwarding table
+	if ad comes, does calculation in the ad table
+	* depends on the naming scheme, we're using '/' based 
+
+ns-3/nfd/ndnsim notes:
+CUSTOMIZED FORWARDING:
+	daemon/fw/strategy.hpp is the abstract forwarding strategy class.
+		triggers - functions that are called when a something happens
+			afterInterestReceived - when an inerest packet comes in
+			beforeSatisfyInterest - when a Data packet comes in that satisfies the interest
+			NOTE: WE NEED TO ADD THE AD PACKET.
+				this causes the issue that the above 2 triggers are specifically for Interest and Data
+				possible solution: make Ad a subclass of Interest, thus it will still trigger with Interest
+				it will then have to be checked to see if it is Interest or Ad and delt with accordingly
+		actions - what to do when a trigger occurs
+			traditionally, find out if the entry is in the FIB
+				Strategy::lookupFIB function
+					maybe for now we just use one FIB instead of FIB and FAB
+	creating strategies is simple
+		create a subclass of Strategy in the same folder:
+			create the hpp file
+			create the cpp file
+			implement triggers and do logic
+			implement the name function to give it a name
+			NFD_REGISTER_STRATEGY macro function (see best-route-strategy)
+		recompile
+		run the command nfdc set-strategy see manual
+
+ISSUES:
+	How can we create an ad table and integrete it into the codebase?
+		the current triggers precheck the CS and PIT
+			can we possibly postcheck the PAT?
+	How can we create an ad packet and integrate it into the codebase?
+		The Face gives Interest packets to the Strategy
+		I suppose we could figure out a way to make the Face also give Ad packets to the strategy
+	The Forwardign Ad Table
+
+STEPS:
+	1. Create the Strategy subclass: TwoWayStrategy
+	2. Create the Ad packet subclass (see Interest)
+	3. Create the Pending Ad Table Data Structure (see PIT)
+	4. Create the Forwarding Ad Base Data Structure (see FIB)
+	5. Modify the interestReceived method to reflect the requirements above
+	6. Modify the satisfyInterest to reflect the requirements above
+
+Main Tasks
+1. Creating nodes dynamically		(complete)
+2. Data content generation			(already developed)  
+3. Spawning interest packets		(already developed)
+4. Spawining ad packets
+5. Satisfaction tracking
+
+Generating ad packets:
+	App is the base class. Consumer and Producer are the Subclasses.
+	Currently, Consumer is the only packet sender. Need to get producer to send packets too
+
+NOTE: A possible issue with our current forwarding strategy.
+	I think we need a way to prioritize incoming ad packets WHEN an existing ad packet is already found in the node in question.
+	Currently, if an incoming ad matches with the PAT, the ad is discarded.
+	It should be, if the ad coming in has traveled a shorter path to get to the node in question, it should be prioritized. 
+	This way, following the breadcrumbs back will lead to the shortest possible path back to the producer.							
