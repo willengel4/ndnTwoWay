@@ -1,3 +1,7 @@
+#ifndef PACKET_H
+#define PACKET_H
+#include <string>
+
 using namespace std;
 
 class Packet
@@ -6,9 +10,9 @@ class Packet
         int packetType;
         int dataSize;
         int timeToForward;
-        Name name;
+        string name;
         
-        Packet(int pt, int ds, Name n)
+        Packet(int pt, int ds, string n)
         {
             packetType = pt;
             dataSize = ds;
@@ -21,3 +25,4 @@ class Packet
             timeToForward = dataSize;
         }
 };
+#endif

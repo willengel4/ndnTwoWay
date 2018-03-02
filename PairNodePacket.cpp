@@ -1,3 +1,10 @@
+#ifndef PAIRNODEPACKET_H
+#define PAIRNODEPACKET_H
+#include "Packet.cpp"
+#include "Node.cpp"
+
+using namespace std;
+
 class PairNodePacket
 {
     public:
@@ -9,4 +16,5 @@ class PairNodePacket
             node = n;
             packet = p;
         }
-}
+};
+#endif
